@@ -1,70 +1,73 @@
-# cgminer 4.8.0-scrypt (zeus / gridseed / lketc support) #
+# fcgminer - CGMiner for FreeBSD with Scrypt ASIC Support
 
-CGMiner 4.8.0 with GridSeed, Zeus and Lketc with Scrypt ASIC support.
+CGMiner 4.8.1-freebsd with Zeus, GridSeed, and Lketc Scrypt ASIC driver
+support. This is a FreeBSD-focused fork with build fixes and a distinct
+user-agent string.
 
-This file describes Lketc-specific settings and options.
+For the full lineage of this codebase, see [FORK-HISTORY.md](FORK-HISTORY.md).
 
 For general CGMiner information refer to doc/README.
 
-### LKETC usb miner ###
-This code is forked from original cgminer-dmaxl-zeus.
+## Supported Hardware
 
-I made a custom driver for LKETC usb miner that you can find on ebay, like this:
+- **Zeus / ZeusMiner / GAW Fury** -- Scrypt ASIC (6+ chips, CP2102 USB)
+- **GridSeed** -- Dual-mode SHA256+Scrypt ASIC
+- **Lketc** -- Budget Scrypt ASIC sticks (CP2103 USB, 1-2 chips)
 
-![](https://raw.githubusercontent.com/wareck/cgminer-lketc/master/docs/lketc.jpg)
+## Building on FreeBSD
 
+	pkg install autoconf automake libtool pkgconf curl
 
-My code is base on Zeus scrypt Asic, but I made some changes to enable possibility to use Zeus and LKETC as same time (with tuning for each kind of miner)
+	git clone https://github.com/tuaris/fcgminer.git
+	cd fcgminer
 
-Why a separate driver instead of using zeus driver ?
+	./autogen.sh
+	./configure --enable-scrypt --enable-zeus --without-curses
+	gmake
 
-because lketc stick , they are clone of zeus but with cheaper component.
+## Usage Examples
 
-In most case, they need a lower frequency to run properly. If you have a mix of zeus and lketc in your rig, it will interresting to separate zeus and lketc setup. 
+Zeus/GAW Fury (6 chips, 328 MHz) via serial:
 
-to build this specific code:
+	./cgminer --scrypt --zeus-chips 6 --zeus-clock 328 \
+		--zeus-nocheck-golden \
+		--scan-serial zeus:/dev/cuaU0 \
+		-o stratum+tcp://pool:port -u wallet.worker -p x
 
-	sudo apt-get update
-	sudo apt-get install build-essential autoconf automake libtool pkg-config libcurl4-openssl-dev libudev-dev \
-	libjansson-dev libncurses5-dev git libzip-dev
-	
-	git clone https://github.com/wareck/cgminer-lketc.git
-	cd cgminer-lketc
-	
-	sudo usermod -a -G dialout,plugdev $USER
-	sudo cp 01-cgminer.rules /etc/udev/rules.d/
-	
-	CFLAGS="-O2 -march=native" ./autogen.sh
-	./configure --enable-scrypt
-	make
-	sudo reboot
+Lketc stick (1 chip, 280 MHz):
 
-### Option Summary ###
+	./cgminer --scrypt --lketc-clock 280 \
+		--scan-serial lketc:/dev/cuaU0 \
+		-o stratum+tcp://pool:port -u wallet.worker -p x
+
+Mixed Zeus + Lketc:
+
+	./cgminer --scrypt --zeus-chips 6 --zeus-clock 328 --lketc-clock 280
+
+## Zeus Driver Options
 
 ```
-  --lketc-clock <clock>   Default chip clock speed (MHz)
+  --zeus-chips <n>        Number of chips per device (default: 6)
+  --zeus-clock <MHz>      Chip clock speed in MHz (default: 328)
+  --zeus-options <ID>,<chips>,<clock>[;<ID>,<chips>,<clock>...]
+                          Per-device chip count and clock settings
+  --zeus-nocheck-golden   Skip golden nonce verification during init
+  --zeus-debug            Extra driver debug output in verbose mode
+```
+
+## Lketc Driver Options
+
+```
+  --lketc-clock <MHz>     Default chip clock speed (default: 280)
   --lketc-options <ID>,<chips>,<clock>[;<ID>,<chips>,<clock>...]
-                         Set chips and clock speed for individual devices
-
-  --lketc-nocheck-golden  Skip golden nonce verification during initialization (serial mode only)
-  --lketc-debug           Enable extra Lketc driver debugging output in verbose mode
+                          Per-device chip count and clock settings
+  --lketc-nocheck-golden  Skip golden nonce verification during init
+  --lketc-debug           Extra driver debug output in verbose mode
 ```
 
-The following three examples are equivalent assuming two miners are connected:
+## Notes
 
-	# Using libusb
-	./cgminer --scrypt --lketc-clock 280
-	
-	# Direct serial I/O, manual port specification
-	./cgminer --scrypt --lketc-clock 280 --scan-serial /dev/ttyUSB0 \
-		--scan-serial /dev/ttyUSB1 --scan-serial /dev/ttyUSB2
-	
-	# Direct serial I/O, auto-detect ports (Linux only)
-	./cgminer --scrypt --lketc-clock 280 --scan-serial lketc:auto
-
-Exemple If you use Lketc and a Gaw Fury :
-
-	./cgminer --scrypt --lketc-clock 280 --zeus-chips 6 --zeus-clock 328
-
-![](https://raw.githubusercontent.com/wareck/cgminer-lketc/master/docs/mining.png)
-
+- On FreeBSD, USB serial devices appear as `/dev/cuaU0`, `/dev/cuaU1`, etc.
+- The `--zeus-nocheck-golden` flag is recommended for GAW Fury devices
+  that fail the golden nonce timing test but mine correctly.
+- This fork reports user-agent `cgminer/4.8.1-freebsd` to stratum pools.
